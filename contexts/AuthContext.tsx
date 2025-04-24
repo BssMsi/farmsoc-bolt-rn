@@ -1,12 +1,22 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
-import { supabase } from '../services/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Session } from '@supabase/supabase-js';
+import { 
+  auth, 
+  subscribeToAuthChanges, 
+  getSession, 
+  saveSession 
+} from '../services/firebase';
+import { 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword, 
+  signOut as firebaseSignOut,
+  User
+} from 'firebase/auth';
 
 type UserRole = 'consumer' | 'farmer' | 'influencer' | null;
 
 interface AuthContextData {
-  session: Session | null;
+  session: User | null;
   loading: boolean;
   userRole: UserRole;
   signIn: (email: string, password: string) => Promise<void>;
@@ -19,15 +29,15 @@ interface AuthContextData {
 const AuthContext = createContext<AuthContextData>({} as AuthContextData);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [session, setSession] = useState<Session | null>(null);
+  const [session, setSession] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<UserRole>(null);
 
   useEffect(() => {
     // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session) {
+    getSession().then((userSession) => {
+      if (userSession) {
+        setSession(auth.currentUser);
         // Get user role from storage
         AsyncStorage.getItem('userRole').then((role) => {
           setUserRole(role as UserRole);
@@ -37,28 +47,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      if (!session) {
+    const unsubscribe = subscribeToAuthChanges((user) => {
+      setSession(user);
+      if (!user) {
         setUserRole(null);
       }
     });
 
     return () => {
-      subscription.unsubscribe();
+      unsubscribe();
     };
   }, []);
 
   const signIn = async (email: string, password: string) => {
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) throw error;
-
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      
       // Get user role from storage after sign in
       const role = await AsyncStorage.getItem('userRole');
       setUserRole(role as UserRole);
@@ -73,13 +78,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signUp = async (email: string, password: string, role: UserRole) => {
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-      });
-
-      if (error) throw error;
-
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      
       // Store user role
       await setRole(role);
     } catch (error) {
@@ -93,8 +93,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signOut = async () => {
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      await firebaseSignOut(auth);
       
       // Clear user role
       await AsyncStorage.removeItem('userRole');
@@ -119,9 +118,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const refreshSession = async () => {
     try {
-      const { data, error } = await supabase.auth.refreshSession();
-      if (error) throw error;
-      setSession(data.session);
+      // With Firebase, we don't need to manually refresh the session
+      // as it's handled automatically, but we'll keep this method
+      // for API compatibility
+      setSession(auth.currentUser);
     } catch (error) {
       console.error('Error refreshing session:', error);
       throw error;

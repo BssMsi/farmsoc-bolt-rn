@@ -72,7 +72,41 @@ export default function SignupScreen() {
       await signUp(email, password, userType);
       setSuccessMessage('Account created successfully! Redirecting to login...');
     } catch (error) {
-      setErrorMessage('Sign up failed. Please try again with a different email.');
+      if (typeof error === 'object' && error !== null) {
+        const errorObj = error as any;
+        const errorMessage = errorObj.message || '';
+        const errorCode = errorObj.code || '';
+        
+        // Firebase specific error codes
+        if (errorCode === 'auth/email-already-in-use') {
+          setErrorMessage('Email is already in use. Please use a different email or try to login.');
+        }
+        else if (errorCode === 'auth/invalid-email') {
+          setErrorMessage('Invalid email format. Please check your email.');
+        }
+        else if (errorCode === 'auth/weak-password') {
+          setErrorMessage('Password is too weak. Please use a stronger password.');
+        }
+        else if (errorCode === 'auth/network-request-failed') {
+          setErrorMessage('Network error. Please check your internet connection.');
+        }
+        else if (errorCode === 'auth/operation-not-allowed') {
+          setErrorMessage('This sign-up method is not allowed. Please contact support.');
+        }
+        else if (errorMessage.toLowerCase().includes('network') || 
+                errorMessage.toLowerCase().includes('connection')) {
+          setErrorMessage('Network error. Please check your internet connection.');
+        }
+        else if (errorMessage.toLowerCase().includes('timeout')) {
+          setErrorMessage('Request timed out. Please try again.');
+        }
+        else {
+          setErrorMessage('Sign up failed. Please try again.');
+          console.error('Unhandled signup error:', errorCode, errorMessage);
+        }
+      } else {
+        setErrorMessage('Sign up failed. Please try again with a different email.');
+      }
       console.error(error);
     } finally {
       setLoading(false);

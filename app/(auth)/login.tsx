@@ -84,38 +84,41 @@ export default function LoginScreen() {
       if (typeof error === 'object' && error !== null) {
         const errorObj = error as any;
         const errorMessage = errorObj.message || '';
+        const errorCode = errorObj.code || '';
         
-        // Check for common authentication error patterns
-        if (errorMessage.toLowerCase().includes('invalid login') || 
-            errorMessage.toLowerCase().includes('invalid email') || 
-            errorMessage.toLowerCase().includes('incorrect password') ||
-            errorMessage.toLowerCase().includes('user not found') ||
-            errorMessage.toLowerCase().includes('auth/user-not-found') ||
-            errorMessage.toLowerCase().includes('auth/wrong-password')) {
+        // Firebase specific error codes
+        if (errorCode === 'auth/user-not-found' || errorCode === 'auth/wrong-password' || 
+            errorCode === 'auth/invalid-credential') {
           setErrorMessage('Invalid email or password. Please try again.');
-        } 
+        }
+        else if (errorCode === 'auth/invalid-email') {
+          setErrorMessage('Invalid email format. Please check your email.');
+        }
+        else if (errorCode === 'auth/too-many-requests') {
+          setErrorMessage('Too many login attempts. Please try again later.');
+        }
+        else if (errorCode === 'auth/network-request-failed') {
+          setErrorMessage('Network error. Please check your internet connection.');
+        }
+        else if (errorCode === 'auth/user-disabled') {
+          setErrorMessage('This account has been disabled. Please contact support.');
+        }
+        else if (errorCode === 'auth/requires-recent-login') {
+          setErrorMessage('Please sign in again to continue.');
+        }
+        else if (errorCode === 'auth/email-already-in-use') {
+          setErrorMessage('Email is already in use by another account.');
+        }
+        // Check for common authentication error patterns from error message
         else if (errorMessage.toLowerCase().includes('network') || 
                  errorMessage.toLowerCase().includes('connection') ||
                  errorMessage.toLowerCase().includes('offline') ||
                  errorMessage.toLowerCase().includes('internet')) {
           setErrorMessage('Network error. Please check your internet connection.');
         } 
-        else if (errorMessage.toLowerCase().includes('too many') || 
-                 errorMessage.toLowerCase().includes('rate limit') ||
-                 errorMessage.toLowerCase().includes('auth/too-many-requests')) {
-          setErrorMessage('Too many login attempts. Please try again later.');
-        } 
-        else if (errorMessage.toLowerCase().includes('not verified') || 
-                 errorMessage.toLowerCase().includes('verify') ||
-                 errorMessage.toLowerCase().includes('auth/email-not-verified')) {
-          setErrorMessage('Email not verified. Please check your inbox to verify your account.');
-        }
         else if (errorMessage.toLowerCase().includes('timeout') || 
                  errorMessage.toLowerCase().includes('timed out')) {
           setErrorMessage('Request timed out. Please try again.');
-        }
-        else if (errorMessage.toLowerCase().includes('auth/invalid-email')) {
-          setErrorMessage('Invalid email format. Please check your email.');
         }
         else if (errorMessage.toLowerCase().includes('server') || 
                  errorMessage.toLowerCase().includes('500')) {
@@ -124,13 +127,14 @@ export default function LoginScreen() {
         else {
           // Generic error message for other cases
           setErrorMessage('An error occurred during sign in. Please try again later.');
-          console.error('Unhandled login error:', errorMessage);
+          console.error('Unhandled login error:', errorMessage, errorCode);
         }
       } else {
         setErrorMessage('Failed to sign in. Please try again later.');
       }
       
       console.error('Login error:', error);
+    } finally {
       setLoading(false);
     }
   };
